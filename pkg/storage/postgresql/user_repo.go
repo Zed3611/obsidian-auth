@@ -19,14 +19,14 @@ type PgUserStorage struct {
 }
 
 func New(pool *pg.Pool) *PgUserStorage {
-	return &PgUserStorage{pool}
+	return &PgUserStorage{pool: pool}
 }
 
 func (s *PgUserStorage) Create(ctx context.Context, email, passwordHash string) (*models.User, error) {
 	const op = "postgresql.user_repo.Create"
 
 	const query = `--sql
-		insert into users(email, password_hash) 
+		insert into users(email, password_hash)
 		values ($1, $2)
 		returning id, email, password_hash, created_at, updated_at
 	`
@@ -57,7 +57,7 @@ func (s *PgUserStorage) FindByEmail(ctx context.Context, email string) (*models.
 	const op = "postgresql.user_repo.FindByEmail"
 
 	const query = `--sql
-		select * from users where email = '$1'
+		select * from users where email = $1
 	`
 
 	var user models.User

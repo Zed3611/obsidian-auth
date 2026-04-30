@@ -19,7 +19,7 @@ type App struct {
 	port       int
 }
 
-func New(log *slog.Logger, port int, authHandler auth.AuthService) *App {
+func New(log *slog.Logger, port int, authService auth.AuthService) *App {
 	loggingOpts := []logging.Option{
 		logging.WithLogOnEvents(
 			logging.PayloadReceived, logging.PayloadSent,
@@ -39,7 +39,7 @@ func New(log *slog.Logger, port int, authHandler auth.AuthService) *App {
 		logging.UnaryServerInterceptor(interceptorLogger(log), loggingOpts...),
 	))
 
-	auth.RegisterHandler(grpcServer, authHandler)
+	auth.RegisterHandler(grpcServer, authService)
 
 	return &App{
 		log:        log,
@@ -48,8 +48,6 @@ func New(log *slog.Logger, port int, authHandler auth.AuthService) *App {
 	}
 }
 
-// InterceptorLogger adapts slog logger to interceptor logger.
-// This code is simple enough to be copied and not imported.
 func interceptorLogger(l *slog.Logger) logging.Logger {
 	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
 		l.Log(ctx, slog.Level(lvl), msg, fields...)
