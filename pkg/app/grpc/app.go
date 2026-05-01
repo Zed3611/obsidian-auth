@@ -2,7 +2,9 @@ package appgrpc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
@@ -48,8 +50,35 @@ func New(log *slog.Logger, port int, authService auth.AuthService) *App {
 	}
 }
 
-func (a *App) Run() {
-	a.grpcServer.Serve()
+func (a *App) MustRun() {
+	if err := a.Run(); err != nil {
+		panic(err)
+	}
+}
+
+func (a *App) Run() error {
+	const op = "app.grpc.Run"
+
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", a.port))
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	a.log.Info("Server started", slog.String("addr", l.Addr().String()))
+
+	if err := a.grpcServer.Serve(l); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (a *App) Stop() {
+	const op = "app.grpc.Run"
+
+	a.log.Info("Stopping server")
+
+	a.grpcServer.GracefulStop()
 }
 
 func interceptorLogger(l *slog.Logger) logging.Logger {

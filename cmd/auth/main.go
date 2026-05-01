@@ -5,12 +5,21 @@ import (
 	"log/slog"
 	"obsidian-auth/pkg/app"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 )
 
+const (
+	envLocal = "local"
+	envDev   = "dev"
+	envProd  = "prod"
+)
+
 func main() {
-	logger := slog.New(&slog.JSONHandler{})
+	logger := setupLogger(getEnvOrDefault("APP_ENV", envLocal))
+	logger.Info("Test")
 	ctx := context.Background()
 
 	accessTokenDuration := time.Duration(getIntEnvOrDefault("ACCESS_TOKEN_DURATION_MINUTES", 5)) * time.Minute // 5 mins
@@ -29,6 +38,39 @@ func main() {
 		0,
 	)
 
+	go func() {
+		a.Server.MustRun()
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+
+	<-stop
+
+	a.Server.Stop()
+
+	logger.Info("App stopped gracefully")
+}
+
+func setupLogger(env string) *slog.Logger {
+	var log *slog.Logger
+
+	switch env {
+	case envLocal:
+		log = slog.New(
+			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		)
+	case envDev:
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		)
+	case envProd:
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}),
+		)
+	}
+
+	return log
 }
 
 func getEnvOrDefault(key, defaultVal string) string {
