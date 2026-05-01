@@ -6,22 +6,25 @@ import (
 	"log/slog"
 	"net"
 
+	auth "obsidian-auth/pkg/grpc/auth"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
-
-	auth "obsidian-auth/pkg/grpc/auth"
 )
 
 type App struct {
 	log        *slog.Logger
+	h          health.Server
 	grpcServer *grpc.Server
 	port       int
 }
 
-func New(log *slog.Logger, port int, authService auth.AuthService) *App {
+func New(log *slog.Logger, port int, authService auth.AuthService, h *health.Server) *App {
 	loggingOpts := []logging.Option{
 		logging.WithLogOnEvents(
 			logging.PayloadReceived, logging.PayloadSent,
@@ -29,7 +32,7 @@ func New(log *slog.Logger, port int, authService auth.AuthService) *App {
 	}
 
 	recoveryOpts := []recovery.Option{
-		recovery.WithRecoveryHandler(func(p interface{}) (err error) {
+		recovery.WithRecoveryHandler(func(p any) (err error) {
 			log.Error("Recovered from panic", slog.Any("panic", p))
 
 			return status.Errorf(codes.Internal, "internal error")
@@ -42,6 +45,7 @@ func New(log *slog.Logger, port int, authService auth.AuthService) *App {
 	))
 
 	auth.RegisterHandler(grpcServer, authService)
+	healthv1.RegisterHealthServer(grpcServer, h)
 
 	return &App{
 		log:        log,

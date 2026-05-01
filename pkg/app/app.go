@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	appgrpc "obsidian-auth/pkg/app/grpc"
 	cacheredis "obsidian-auth/pkg/cache/redis"
+	"obsidian-auth/pkg/health"
 	authservice "obsidian-auth/pkg/service/auth"
 	postgresqlstorage "obsidian-auth/pkg/storage/postgresql"
 	"time"
@@ -13,7 +14,8 @@ import (
 )
 
 type App struct {
-	Server *appgrpc.App
+	Server        *appgrpc.App
+	HealthChecker *health.Checker
 }
 
 func New(
@@ -27,12 +29,25 @@ func New(
 	redisAddr string,
 	redisPass string,
 	redisDb int,
-) *App {
-	pool, _ := pg.New(ctx, pgConnect)
+	healthCheckInterval time.Duration,
+	healthCheckTimeout time.Duration,
+) (*App, error) {
+	pool, err := pg.New(ctx, pgConnect)
+	if err != nil {
+		return nil, err
+	}
 
 	userRepo := postgresqlstorage.NewUserStorage(pool)
 	sessionRepo := postgresqlstorage.NewSessionStorage(pool)
 	redis := cacheredis.New(redisAddr, redisPass, redisDb)
+
+	healthChecker := health.New(
+		logger,
+		pool,
+		redis,
+		healthCheckInterval,
+		healthCheckTimeout,
+	)
 
 	authService := authservice.New(
 		authservice.AuthConfig{
@@ -50,7 +65,8 @@ func New(
 		logger,
 		port,
 		authService,
+		healthChecker.Server(),
 	)
 
-	return &App{app}
+	return &App{app, healthChecker}, nil
 }

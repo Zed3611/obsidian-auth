@@ -22,16 +22,16 @@ func New(addr string, pass string, db int) *RedisCache {
 	}
 }
 
+func blacklistKey(sessionID int) string {
+	return fmt.Sprintf("blacklist:%v", sessionID)
+}
+
 func (r *RedisCache) Set(ctx context.Context, key string, val any, exp time.Duration) error {
 	return r.client.Set(ctx, key, val, exp).Err()
 }
 
 func (r *RedisCache) Get(ctx context.Context, key string) (string, error) {
 	return r.client.Get(ctx, key).Result()
-}
-
-func blacklistKey(sessionID int) string {
-	return fmt.Sprintf("blacklist:%v", sessionID)
 }
 
 func (r *RedisCache) BlacklistSession(ctx context.Context, sessionID int, duration time.Duration) error {
@@ -44,4 +44,8 @@ func (r *RedisCache) IsBlacklisted(ctx context.Context, sessionID int) (bool, er
 		return false, err
 	}
 	return n > 0, nil
+}
+
+func (r *RedisCache) Ping(ctx context.Context) error {
+	return r.client.Ping(ctx).Err()
 }

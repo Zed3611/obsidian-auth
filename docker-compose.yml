@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:18-alpine3.23
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: auth
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine3.23
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  auth:
+    image: obsidian-auth:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      GRPC_PORT: 8080
+      PG_CONNECT_STRING: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_TOKEN_DURATION_MINUTES: ${ACCESS_TOKEN_DURATION_MINUTES:-5}
+      SESSION_DURATION_MINUTES: ${SESSION_DURATION_MINUTES:-10080}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      HEALTH_CHECK_INTERVAL_S: ${HEALTH_CHECK_INTERVAL_S:-5}
+      HEALTH_CHECK_TIMEOUT_S: ${HEALTH_CHECK_TIMEOUT_S:-5}
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "/grpc_health_probe", "-addr=:8080", "-service=readiness"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  pg_data:

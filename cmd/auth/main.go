@@ -25,7 +25,10 @@ func main() {
 	accessTokenDuration := time.Duration(getIntEnvOrDefault("ACCESS_TOKEN_DURATION_MINUTES", 5)) * time.Minute // 5 mins
 	sessionDuration := time.Duration(getIntEnvOrDefault("SESSION_DURATION_MINUTES", 10080)) * time.Minute      // 7 days
 
-	a := app.New(
+	healthCheckInterval := time.Duration(getIntEnvOrDefault("HEALTH_CHECK_INTERVAL_S", 5)) * time.Second
+	healthCheckTimeout := time.Duration(getIntEnvOrDefault("HEALTH_CHECK_TIMEOUT_S", 5)) * time.Second
+
+	a, err := app.New(
 		ctx,
 		logger,
 		getIntEnvOrDefault("GRPC_PORT", 8080),
@@ -36,11 +39,17 @@ func main() {
 		getEnvOrDefault("REDIS_ADDR", "localhost:6379"),
 		getEnvOrDefault("REDIS_PASS", ""),
 		0,
+		healthCheckInterval,
+		healthCheckTimeout,
 	)
 
-	go func() {
-		a.Server.MustRun()
-	}()
+	if err != nil {
+		panic(err)
+	}
+
+	go a.Server.MustRun()
+
+	go a.HealthChecker.Run(ctx)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
@@ -58,15 +67,15 @@ func setupLogger(env string) *slog.Logger {
 	switch env {
 	case envLocal:
 		log = slog.New(
-			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
 		)
 	case envDev:
 		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
 		)
 	case envProd:
 		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}),
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}),
 		)
 	}
 
