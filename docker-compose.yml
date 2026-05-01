@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: auth
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d auth"]
       interval: 5s
@@ -26,6 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      ssh: { default }
     depends_on:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
