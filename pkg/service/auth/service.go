@@ -29,7 +29,7 @@ type SessionRepository interface {
 	Create(ctx context.Context, userId int, ip, userAgent, tokenHash string, activeTil time.Time) (*models.Session, error)
 	FindByRefreshTokenHash(ctx context.Context, hash string) (*models.Session, error)
 	UpdateRefreshToken(ctx context.Context, sessionId int, newHash string, activeTil time.Time) error
-	FindByUserID(ctx context.Context, userId int) ([]models.Session, error)
+	FindByUserID(ctx context.Context, userId int) (*[]models.Session, error)
 	DeleteOne(ctx context.Context, sessionId, userId int) error
 	DeleteManyExcept(ctx context.Context, userId, exceptSessionId int) ([]int, error)
 }
@@ -253,7 +253,7 @@ func (a *AuthService) validateAccessToken(tokenStr string) (*models.Claims, erro
 	return &models.Claims{UserId: sub, Email: email, SessionId: sid, ExpirationTime: et.Time}, nil
 }
 
-func (a *AuthService) GetSessions(ctx context.Context, accessToken string) ([]models.Session, int, error) {
+func (a *AuthService) GetSessions(ctx context.Context, accessToken string) (*[]models.Session, int, error) {
 	const op = "service.auth.GetSessions"
 
 	a.log.Info("Attempt to get sessions")

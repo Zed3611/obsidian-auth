@@ -48,6 +48,10 @@ func New(log *slog.Logger, port int, authService auth.AuthService) *App {
 	}
 }
 
+func (a *App) Run() {
+	a.grpcServer.Serve()
+}
+
 func interceptorLogger(l *slog.Logger) logging.Logger {
 	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
 		l.Log(ctx, slog.Level(lvl), msg, fields...)

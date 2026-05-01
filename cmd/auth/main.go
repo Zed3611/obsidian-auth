@@ -1,32 +1,34 @@
 package main
 
 import (
+	"context"
 	"log/slog"
-	appgrpc "obsidian-auth/pkg/app/grpc"
-	authservice "obsidian-auth/pkg/service/auth"
-	postgresqlstorage "obsidian-auth/pkg/storage/postgresql"
+	"obsidian-auth/pkg/app"
 	"os"
 	"strconv"
-
-	pg "github.com/jackc/pgx/v5/pgxpool"
+	"time"
 )
 
 func main() {
 	logger := slog.New(&slog.JSONHandler{})
+	ctx := context.Background()
 
-	pool = pg.New()
+	accessTokenDuration := time.Duration(getIntEnvOrDefault("ACCESS_TOKEN_DURATION_MINUTES", 5)) * time.Minute // 5 mins
+	sessionDuration := time.Duration(getIntEnvOrDefault("SESSION_DURATION_MINUTES", 10080)) * time.Minute      // 7 days
 
-	userRepo = postgresqlstorage.New()
-
-	authService := authservice.New(
-		authservice.AuthConfig{},
+	a := app.New(
+		ctx,
 		logger,
+		getIntEnvOrDefault("GRPC_PORT", 8080),
+		getEnvOrDefault("PG_CONNECT_STRING", "postgresql://root@localhost:5432/auth"),
+		getEnvOrDefault("JWT_SECRET", "test-secret-change-me"),
+		accessTokenDuration,
+		sessionDuration,
+		getEnvOrDefault("REDIS_ADDR", "localhost:6379"),
+		getEnvOrDefault("REDIS_PASS", ""),
+		0,
 	)
 
-	app := appgrpc.New(
-		&logger,
-		getIntEnvOrDefault("GRPC_PORT", 8080),
-	)
 }
 
 func getEnvOrDefault(key, defaultVal string) string {

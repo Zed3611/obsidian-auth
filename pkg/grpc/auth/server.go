@@ -16,8 +16,8 @@ type AuthService interface {
 	Register(ctx context.Context, email, password string) (*models.User, error)
 	Login(ctx context.Context, email, password, ip, userAgent string) (accessToken, refreshToken string, err error)
 	Logout(ctx context.Context, accessToken string) error
-	RefreshToken(ctx context.Context, refreshToken string) (newAccessToken, newRefreshToken string, claims *models.Claims, err error)
-	GetSessions(ctx context.Context, accessToken string) (sessions []models.Session, currentSessionId int, err error)
+	RefreshSession(ctx context.Context, refreshToken string) (newAccessToken, newRefreshToken string, claims *models.Claims, err error)
+	GetSessions(ctx context.Context, accessToken string) (sessions *[]models.Session, currentSessionId int, err error)
 	RevokeSession(ctx context.Context, accessToken string, sessionId int) error
 	RevokeAllSessions(ctx context.Context, accessToken string) (revokedSessionsCount int, err error)
 }
@@ -96,7 +96,7 @@ func (a *authApi) RefreshToken(ctx context.Context, request *authv1.RefreshToken
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	accessToken, refreshToken, _, err := a.authService.RefreshToken(ctx, request.GetRefreshToken())
+	accessToken, refreshToken, _, err := a.authService.RefreshSession(ctx, request.GetRefreshToken())
 	if err != nil { //TODO error handling
 		return nil, status.Error(codes.Internal, "Failed to refresh token")
 	}
@@ -119,8 +119,8 @@ func (a *authApi) GetSessions(ctx context.Context, request *authv1.GetSessionsRe
 		return nil, status.Error(codes.Internal, "Failed to get Sessions")
 	}
 
-	_sessions := make([]*authv1.Session, len(sessions))
-	for _, v := range sessions {
+	_sessions := make([]*authv1.Session, len(*sessions))
+	for _, v := range *sessions {
 		_sessions = append(_sessions, &authv1.Session{
 			Id:        int64(v.Id),
 			Ip:        v.Ip,

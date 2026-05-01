@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	appgrpc "obsidian-auth/pkg/app/grpc"
+	cacheredis "obsidian-auth/pkg/cache/redis"
 	authservice "obsidian-auth/pkg/service/auth"
 	postgresqlstorage "obsidian-auth/pkg/storage/postgresql"
 	"time"
@@ -23,10 +24,15 @@ func New(
 	jwtSecret string,
 	accessTokenDuration time.Duration,
 	sessionDuration time.Duration,
-) {
+	redisAddr string,
+	redisPass string,
+	redisDb int,
+) *App {
 	pool, _ := pg.New(ctx, pgConnect)
 
-	userRepo := postgresqlstorage.New(pool)
+	userRepo := postgresqlstorage.NewUserStorage(pool)
+	sessionRepo := postgresqlstorage.NewSessionStorage(pool)
+	redis := cacheredis.New(redisAddr, redisPass, redisDb)
 
 	authService := authservice.New(
 		authservice.AuthConfig{
@@ -35,14 +41,16 @@ func New(
 			SessionDuration:     sessionDuration,
 		},
 		logger,
-		userRepo,
-		userRepo,
+		redis,
+		sessionRepo,
 		userRepo,
 	)
 
-	_ = appgrpc.New(
-		log,
+	app := appgrpc.New(
+		logger,
 		port,
 		authService,
 	)
+
+	return &App{app}
 }
