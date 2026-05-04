@@ -22,16 +22,16 @@ type AuthService interface {
 	RevokeAllSessions(ctx context.Context, accessToken string) (revokedSessionsCount int, err error)
 }
 
-type authApi struct {
+type AuthApi struct {
 	authv1.UnimplementedAuthServiceServer
-	authService AuthService
+	AuthService AuthService
 }
 
 func RegisterHandler(server *grpc.Server, authService AuthService) {
-	authv1.RegisterAuthServiceServer(server, &authApi{authService: authService})
+	authv1.RegisterAuthServiceServer(server, &AuthApi{AuthService: authService})
 }
 
-func (a *authApi) Register(ctx context.Context, request *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
+func (a *AuthApi) Register(ctx context.Context, request *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
 	v := validator.New()
 
 	if err := v.Var(request.GetEmail(), "required,email"); err != nil {
@@ -42,8 +42,8 @@ func (a *authApi) Register(ctx context.Context, request *authv1.RegisterRequest)
 		return nil, status.Error(codes.InvalidArgument, "Password must be at least 8 symbols")
 	}
 
-	user, err := a.authService.Register(ctx, request.GetEmail(), request.GetPassword())
-	if err != nil { // TODO error handling
+	user, err := a.AuthService.Register(ctx, request.GetEmail(), request.GetPassword())
+	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to register user")
 	}
 
@@ -53,7 +53,7 @@ func (a *authApi) Register(ctx context.Context, request *authv1.RegisterRequest)
 	}, nil
 }
 
-func (a *authApi) Login(ctx context.Context, request *authv1.LoginRequest) (*authv1.LoginResponse, error) {
+func (a *AuthApi) Login(ctx context.Context, request *authv1.LoginRequest) (*authv1.LoginResponse, error) {
 	v := validator.New()
 
 	if err := v.Var(request.GetEmail(), "required,email"); err != nil {
@@ -64,7 +64,7 @@ func (a *authApi) Login(ctx context.Context, request *authv1.LoginRequest) (*aut
 		return nil, status.Error(codes.InvalidArgument, "Password must be at least 8 symbols")
 	}
 
-	accessToken, refreshToken, err := a.authService.Login(ctx, request.GetEmail(), request.GetPassword(), "", "") // TODO add ip and user_agent
+	accessToken, refreshToken, err := a.AuthService.Login(ctx, request.GetEmail(), request.GetPassword(), "", "") // TODO add ip and user_agent
 	if err != nil {                                                                                               // TODO error handling
 		return nil, status.Error(codes.Internal, "Failed to login")
 	}
@@ -75,28 +75,28 @@ func (a *authApi) Login(ctx context.Context, request *authv1.LoginRequest) (*aut
 	}, nil
 }
 
-func (a *authApi) Logout(ctx context.Context, request *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
+func (a *AuthApi) Logout(ctx context.Context, request *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
 	v := validator.New()
 
 	if err := v.Var(request.GetAccessToken(), "required"); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	if err := a.authService.Logout(ctx, request.GetAccessToken()); err != nil { // TODO error handling
+	if err := a.AuthService.Logout(ctx, request.GetAccessToken()); err != nil { // TODO error handling
 		return nil, status.Error(codes.Internal, "Failed to logout")
 	}
 
 	return &authv1.LogoutResponse{}, nil
 }
 
-func (a *authApi) RefreshToken(ctx context.Context, request *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
+func (a *AuthApi) RefreshToken(ctx context.Context, request *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
 	v := validator.New()
 
 	if err := v.Var(request.GetRefreshToken(), "required"); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	accessToken, refreshToken, _, err := a.authService.RefreshSession(ctx, request.GetRefreshToken())
+	accessToken, refreshToken, _, err := a.AuthService.RefreshSession(ctx, request.GetRefreshToken())
 	if err != nil { //TODO error handling
 		return nil, status.Error(codes.Internal, "Failed to refresh token")
 	}
@@ -107,14 +107,14 @@ func (a *authApi) RefreshToken(ctx context.Context, request *authv1.RefreshToken
 	}, nil
 }
 
-func (a *authApi) GetSessions(ctx context.Context, request *authv1.GetSessionsRequest) (*authv1.GetSessionsResponse, error) {
+func (a *AuthApi) GetSessions(ctx context.Context, request *authv1.GetSessionsRequest) (*authv1.GetSessionsResponse, error) {
 	v := validator.New()
 
 	if err := v.Var(request.GetAccessToken(), "required"); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	sessions, currentSessionId, err := a.authService.GetSessions(ctx, request.GetAccessToken())
+	sessions, currentSessionId, err := a.AuthService.GetSessions(ctx, request.GetAccessToken())
 	if err != nil { //TODO error handling
 		return nil, status.Error(codes.Internal, "Failed to get Sessions")
 	}
@@ -136,28 +136,28 @@ func (a *authApi) GetSessions(ctx context.Context, request *authv1.GetSessionsRe
 	}, nil
 }
 
-func (a *authApi) RevokeSession(ctx context.Context, request *authv1.RevokeSessionRequest) (*authv1.RevokeSessionResponse, error) {
+func (a *AuthApi) RevokeSession(ctx context.Context, request *authv1.RevokeSessionRequest) (*authv1.RevokeSessionResponse, error) {
 	v := validator.New()
 
 	if err := v.Var(request.GetAccessToken(), "required"); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	if err := a.authService.RevokeSession(ctx, request.GetAccessToken(), int(request.GetSessionId())); err != nil { //TODO error handling
+	if err := a.AuthService.RevokeSession(ctx, request.GetAccessToken(), int(request.GetSessionId())); err != nil { //TODO error handling
 		return nil, status.Error(codes.Internal, "Failed to revoke session")
 	}
 
 	return &authv1.RevokeSessionResponse{}, nil
 }
 
-func (a *authApi) RevokeAllSessions(ctx context.Context, request *authv1.RevokeAllSessionsRequest) (*authv1.RevokeAllSessionsResponse, error) {
+func (a *AuthApi) RevokeAllSessions(ctx context.Context, request *authv1.RevokeAllSessionsRequest) (*authv1.RevokeAllSessionsResponse, error) {
 	v := validator.New()
 
 	if err := v.Var(request.GetAccessToken(), "required"); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	count, err := a.authService.RevokeAllSessions(ctx, request.GetAccessToken())
+	count, err := a.AuthService.RevokeAllSessions(ctx, request.GetAccessToken())
 	if err != nil { //TODO error handling
 		return nil, status.Error(codes.Internal, "Failed to revoke all sessions")
 	}
