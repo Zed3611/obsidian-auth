@@ -17,7 +17,7 @@ COPY go.mod go.sum ./
 RUN --mount=type=ssh \
     go mod download
 
-COPY cmd ./cmd
+COPY cmd/auth ./cmd/auth
 COPY pkg ./pkg
 
 RUN go build -ldflags="-s -w" -o /out/auth ./cmd/auth

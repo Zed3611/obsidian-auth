@@ -1,15 +1,22 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+
+	"obsidian-auth/internal/seeder"
+	postgresqlstorage "obsidian-auth/pkg/storage/postgresql"
+
+	pg "github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -18,6 +25,8 @@ var (
 )
 
 func main() {
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
 	flag.Parse()
 
 	pgURI := mustEnv("PG_CONNECT_STRING")
@@ -50,6 +59,19 @@ func main() {
 
 	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		panic(err)
+	}
+
+	if *Seed && *Rollback == 0 {
+		pool, err := pg.New(ctx, pgURI)
+		if err != nil {
+			panic(err)
+		}
+
+		u := seeder.NewUsersSeeder(postgresqlstorage.NewUserStorage(pool))
+		err = u.Run(ctx)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
