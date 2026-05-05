@@ -3,8 +3,10 @@ package authgrpc_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"obsidian-auth/pkg/domain/models"
 	authgrpc "obsidian-auth/pkg/grpc/auth"
+	authservice "obsidian-auth/pkg/service/auth"
 	"testing"
 
 	obsidian_auth_v1 "github.com/Zed3611/obsidian-protos/gen/go/auth/v1"
@@ -27,7 +29,7 @@ func (m *AuthServiceMock) Register(ctx context.Context, email, password string) 
 }
 func (m *AuthServiceMock) Login(ctx context.Context, email, password, ip, userAgent string) (string, string, error) {
 	args := m.Called(ctx, email, password, ip, userAgent)
-	return args.String(0), args.String(1), args.Error(1)
+	return args.String(0), args.String(1), args.Error(2)
 }
 func (m *AuthServiceMock) Logout(ctx context.Context, accessToken string) error {
 	args := m.Called(ctx, accessToken)
@@ -132,3 +134,79 @@ func TestRegister_Validation(t *testing.T) {
 		}
 	}
 }
+
+func TestLogin_Success(t *testing.T) {
+	api, authMock := provideAuthApi()
+	ctx := context.Background()
+
+	const password = "password"
+	const email = "test@example.com"
+	const accessToken = "test-access"
+	const refreshToken = "test-refresh"
+
+	authMock.
+		On("Login", mock.Anything, email, password, "", "").
+		Return(accessToken, refreshToken, nil)
+
+	res, err := api.Login(ctx, &obsidian_auth_v1.LoginRequest{Email: email, Password: password})
+
+	assert.NoError(t, err)
+	assert.Equal(t, accessToken, res.GetAccessToken())
+	assert.Equal(t, refreshToken, res.GetRefreshToken())
+}
+
+func TestLogin_Validation(t *testing.T) {
+	api, authMock := provideAuthApi()
+	ctx := context.Background()
+
+	type validationTestCase struct {
+		email     string
+		password  string
+		isError   bool
+		errorCode codes.Code
+	}
+
+	testCases := []validationTestCase{
+		{"test", "12345678", true, codes.InvalidArgument},
+		{"", "12345678", true, codes.InvalidArgument},
+		{"test@example.com", "1234567", true, codes.InvalidArgument},
+		{"test@example.com", "", true, codes.InvalidArgument},
+		{email: "test@example.com", password: "12345678", isError: false},
+	}
+
+	for _, testCase := range testCases {
+		if !testCase.isError {
+			authMock.On("Login", mock.Anything, testCase.email, testCase.password, "", "").Return("", "", nil)
+		}
+
+		_, err := api.Login(ctx, &obsidian_auth_v1.LoginRequest{
+			Email:    testCase.email,
+			Password: testCase.password,
+		})
+
+		if testCase.isError {
+			assert.Error(t, err)
+			assert.Equal(t, testCase.errorCode, status.Code(err))
+		} else {
+			assert.NoError(t, err)
+		}
+	}
+}
+
+func TestLogin_InvalidCreds(t *testing.T) {
+	api, authMock := provideAuthApi()
+	ctx := context.Background()
+
+	const password = "password"
+	const email = "test@example.com"
+	authMock.
+		On("Login", mock.Anything, email, password, "", "").
+		Return("", "", fmt.Errorf("%s: %w", "TestLogin_InvalidCreds", authservice.ErrInvalidCredentials))
+
+	_, err := api.Login(ctx, &obsidian_auth_v1.LoginRequest{Email: email, Password: password})
+
+	assert.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+// ...

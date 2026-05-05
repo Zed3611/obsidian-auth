@@ -2,7 +2,9 @@ package authgrpc
 
 import (
 	"context"
+	"errors"
 	"obsidian-auth/pkg/domain/models"
+	authservice "obsidian-auth/pkg/service/auth"
 	"time"
 
 	authv1 "github.com/Zed3611/obsidian-protos/gen/go/auth/v1"
@@ -64,8 +66,18 @@ func (a *AuthApi) Login(ctx context.Context, request *authv1.LoginRequest) (*aut
 		return nil, status.Error(codes.InvalidArgument, "Password must be at least 8 symbols")
 	}
 
-	accessToken, refreshToken, err := a.AuthService.Login(ctx, request.GetEmail(), request.GetPassword(), "", "") // TODO add ip and user_agent
-	if err != nil {                                                                                               // TODO error handling
+	accessToken, refreshToken, err := a.AuthService.Login(
+		ctx,
+		request.GetEmail(),
+		request.GetPassword(),
+		request.GetIp(),
+		request.GetUserAgent(),
+	)
+	if err != nil {
+		if errors.Is(err, authservice.ErrInvalidCredentials) {
+			return nil, status.Error(codes.InvalidArgument, "Invalid credentials")
+		}
+
 		return nil, status.Error(codes.Internal, "Failed to login")
 	}
 
@@ -82,7 +94,11 @@ func (a *AuthApi) Logout(ctx context.Context, request *authv1.LogoutRequest) (*a
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	if err := a.AuthService.Logout(ctx, request.GetAccessToken()); err != nil { // TODO error handling
+	if err := a.AuthService.Logout(ctx, request.GetAccessToken()); err != nil {
+		if errors.Is(err, authservice.ErrInvalidToken) {
+			return nil, status.Error(codes.InvalidArgument, "Invalid access token")
+		}
+
 		return nil, status.Error(codes.Internal, "Failed to logout")
 	}
 
@@ -97,7 +113,11 @@ func (a *AuthApi) RefreshToken(ctx context.Context, request *authv1.RefreshToken
 	}
 
 	accessToken, refreshToken, _, err := a.AuthService.RefreshSession(ctx, request.GetRefreshToken())
-	if err != nil { //TODO error handling
+	if err != nil {
+		if errors.Is(err, authservice.ErrInvalidToken) {
+			return nil, status.Error(codes.InvalidArgument, "Invalid refresh token")
+		}
+
 		return nil, status.Error(codes.Internal, "Failed to refresh token")
 	}
 
@@ -115,7 +135,11 @@ func (a *AuthApi) GetSessions(ctx context.Context, request *authv1.GetSessionsRe
 	}
 
 	sessions, currentSessionId, err := a.AuthService.GetSessions(ctx, request.GetAccessToken())
-	if err != nil { //TODO error handling
+	if err != nil {
+		if errors.Is(err, authservice.ErrInvalidToken) {
+			return nil, status.Error(codes.InvalidArgument, "Invalid access token")
+		}
+
 		return nil, status.Error(codes.Internal, "Failed to get Sessions")
 	}
 
@@ -143,7 +167,11 @@ func (a *AuthApi) RevokeSession(ctx context.Context, request *authv1.RevokeSessi
 		return nil, status.Error(codes.InvalidArgument, "Token is required")
 	}
 
-	if err := a.AuthService.RevokeSession(ctx, request.GetAccessToken(), int(request.GetSessionId())); err != nil { //TODO error handling
+	if err := a.AuthService.RevokeSession(ctx, request.GetAccessToken(), int(request.GetSessionId())); err != nil {
+		if errors.Is(err, authservice.ErrInvalidToken) {
+			return nil, status.Error(codes.InvalidArgument, "Invalid access token")
+		}
+
 		return nil, status.Error(codes.Internal, "Failed to revoke session")
 	}
 
@@ -158,7 +186,11 @@ func (a *AuthApi) RevokeAllSessions(ctx context.Context, request *authv1.RevokeA
 	}
 
 	count, err := a.AuthService.RevokeAllSessions(ctx, request.GetAccessToken())
-	if err != nil { //TODO error handling
+	if err != nil {
+		if errors.Is(err, authservice.ErrInvalidToken) {
+			return nil, status.Error(codes.InvalidArgument, "Invalid access token")
+		}
+
 		return nil, status.Error(codes.Internal, "Failed to revoke all sessions")
 	}
 
