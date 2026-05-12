@@ -60,6 +60,8 @@ func provideAuthApi() (*authgrpc.AuthApi, *AuthServiceMock) {
 }
 
 func TestRegister_Success(t *testing.T) {
+	t.Parallel()
+
 	api, authMock := provideAuthApi()
 	ctx := context.Background()
 
@@ -81,6 +83,8 @@ func TestRegister_Success(t *testing.T) {
 }
 
 func TestRegister_UnhandledError(t *testing.T) {
+	t.Parallel()
+
 	api, authMock := provideAuthApi()
 	ctx := context.Background()
 
@@ -98,6 +102,8 @@ func TestRegister_UnhandledError(t *testing.T) {
 }
 
 func TestRegister_Validation(t *testing.T) {
+	t.Parallel()
+
 	api, authMock := provideAuthApi()
 	ctx := context.Background()
 
@@ -136,6 +142,8 @@ func TestRegister_Validation(t *testing.T) {
 }
 
 func TestLogin_Success(t *testing.T) {
+	t.Parallel()
+
 	api, authMock := provideAuthApi()
 	ctx := context.Background()
 
@@ -156,6 +164,8 @@ func TestLogin_Success(t *testing.T) {
 }
 
 func TestLogin_Validation(t *testing.T) {
+	t.Parallel()
+
 	api, authMock := provideAuthApi()
 	ctx := context.Background()
 
@@ -194,6 +204,8 @@ func TestLogin_Validation(t *testing.T) {
 }
 
 func TestLogin_InvalidCreds(t *testing.T) {
+	t.Parallel()
+
 	api, authMock := provideAuthApi()
 	ctx := context.Background()
 
