@@ -2,20 +2,13 @@ FROM golang:alpine3.23 AS builder
 
 RUN apk update && apk add --no-cache git openssh-client
 
-RUN mkdir -p -m 0700 ~/.ssh && \
-    ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-RUN git config --global url."ssh://git@github.com/Zed3611/".insteadOf "https://github.com/Zed3611/"
-
 ENV CGO_ENABLED=0   
 ENV GOOS=linux
-ENV GOPRIVATE=github.com/Zed3611/*
 
 WORKDIR /build
 
 COPY go.mod go.sum ./
-RUN --mount=type=ssh \
-    go mod download
+RUN go mod download
 
 COPY cmd/auth ./cmd/auth
 COPY pkg ./pkg
